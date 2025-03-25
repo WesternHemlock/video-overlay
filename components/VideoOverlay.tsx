@@ -163,7 +163,7 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
   }
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col h-full">
       {/* Hidden video element for loading the video */}
       <video
         ref={videoRef}
@@ -176,20 +176,15 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
       />
 
       {/* Canvas for displaying video with text overlay */}
-      <div className="relative mb-4 overflow-hidden rounded-lg shadow-lg">
-        <canvas ref={canvasRef} className="max-w-full h-auto" style={{ maxHeight: "70vh" }} />
+      <div className="relative flex-1 overflow-hidden rounded-lg shadow-lg">
+        <canvas ref={canvasRef} className="w-full h-full object-contain" />
       </div>
 
-      <div className="flex gap-4">
-        <Button onClick={togglePlay}>{isPlaying ? "Pause" : "Play"}</Button>
-        <Button onClick={downloadImage} variant="outline">
-          Capture Frame
+      <div className="flex gap-2 mt-2">
+        <Button onClick={togglePlay}>
+          {isPlaying ? "Pause" : "Play"}
         </Button>
       </div>
-
-      <p className="mt-4 text-sm text-muted-foreground">
-        Note: This captures individual frames. For a full video download, you would need server-side processing.
-      </p>
     </div>
   )
 } 

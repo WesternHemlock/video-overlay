@@ -24,6 +24,7 @@ export default function VideoOverlayPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setShowPreview(false) // Hide preview when processing starts
 
     try {
       const response = await fetch('/api/video-overlay', {
@@ -55,6 +56,7 @@ export default function VideoOverlayPage() {
   const handlePreview = () => {
     if (videoUrl && text) {
       setShowPreview(true)
+      setResult(null) // Clear any previous result
     } else {
       toast.error("Please enter both video URL and text")
     }
@@ -62,85 +64,97 @@ export default function VideoOverlayPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <Card className="max-w-4xl mx-auto">
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle>Add Text Overlay to Video</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                type="url"
-                placeholder="Video URL (MP4)"
-                value={videoUrl}
-                onChange={(e) => {
-                  setVideoUrl(e.target.value)
-                  setShowPreview(false)
-                }}
-                required
-                pattern=".*\.mp4$"
-                title="Please enter a valid MP4 video URL"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Form Section */}
+            <div className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="url"
+                    placeholder="Video URL (MP4)"
+                    value={videoUrl}
+                    onChange={(e) => {
+                      setVideoUrl(e.target.value)
+                      setShowPreview(false)
+                      setResult(null)
+                    }}
+                    required
+                    pattern=".*\.mp4$"
+                    title="Please enter a valid MP4 video URL"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Text to overlay"
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value)
+                      setShowPreview(false)
+                      setResult(null)
+                    }}
+                    required
+                    maxLength={100}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <Button 
+                    variant="outline"
+                    onClick={handlePreview}
+                    disabled={loading || !videoUrl || !text}
+                  >
+                    Preview
+                  </Button>
+                  <Button 
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : 'Process Video'}
+                  </Button>
+                </div>
+              </form>
             </div>
-            <div className="space-y-2">
-              <Input
-                type="text"
-                placeholder="Text to overlay"
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value)
-                  setShowPreview(false)
-                }}
-                required
-                maxLength={100}
-              />
-            </div>
-            <div className="flex gap-4">
-              <Button 
-                type="button"
-                variant="secondary"
-                onClick={handlePreview}
-                disabled={loading || !videoUrl || !text}
-              >
-                Preview
-              </Button>
-              <Button 
-                type="submit" 
-                className="flex-1"
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Process Video'}
-              </Button>
-            </div>
-          </form>
 
-          {showPreview && (
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-4">Preview</h3>
-              <VideoOverlay videoUrl={videoUrl} overlayText={text} />
+            {/* Preview/Result Section */}
+            <div className="relative">
+              {showPreview ? (
+                <div className="h-full">
+                  <VideoOverlay videoUrl={videoUrl} overlayText={text} />
+                </div>
+              ) : result ? (
+                <div className="h-full flex flex-col gap-4">
+                  <video 
+                    src={result.url} 
+                    controls 
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => window.open(result.url, '_blank')}
+                    >
+                      View Video
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigator.clipboard.writeText(result.url)}
+                    >
+                      Copy URL
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center border-2 border-dashed rounded-lg p-4 text-muted-foreground">
+                  <p className="text-center">Preview will appear here</p>
+                </div>
+              )}
             </div>
-          )}
-
-          {result && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm text-muted-foreground">Processed Video:</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => window.open(result.url, '_blank')}
-                >
-                  View Video
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigator.clipboard.writeText(result.url)}
-                >
-                  Copy URL
-                </Button>
-              </div>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>
