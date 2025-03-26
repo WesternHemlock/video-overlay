@@ -15,15 +15,37 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 })
 
-  // Handle video metadata loaded to get dimensions
+  // Constants for target aspect ratio
+  const TARGET_WIDTH = 1080
+  const TARGET_HEIGHT = 1920
+  const TARGET_ASPECT_RATIO = TARGET_HEIGHT / TARGET_WIDTH
+
+  // Updated text constants for better vertical video display
+  const TEXT_PADDING = 40
+  const BASE_FONT_SIZE = Math.floor(TARGET_WIDTH / 20) // Responsive font size
+  const LINE_HEIGHT = Math.floor(BASE_FONT_SIZE * 1.5) // Proportional line height
+
+  // Handle video metadata loaded to get dimensions and calculate crop
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
 
     const handleMetadataLoaded = () => {
+      const videoWidth = video.videoWidth
+      const videoHeight = video.videoHeight
+      
+      // Calculate dimensions that maintain aspect ratio
+      let cropWidth = videoWidth
+      let cropHeight = videoWidth * TARGET_ASPECT_RATIO
+      
+      if (cropHeight > videoHeight) {
+        cropHeight = videoHeight
+        cropWidth = videoHeight / TARGET_ASPECT_RATIO
+      }
+
       setVideoDimensions({
-        width: video.videoWidth,
-        height: video.videoHeight,
+        width: TARGET_WIDTH,
+        height: TARGET_HEIGHT,
       })
       setVideoLoaded(true)
     }
@@ -41,8 +63,8 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
     const canvas = canvasRef.current
     if (!video || !canvas || !videoLoaded) return
 
-    canvas.width = videoDimensions.width
-    canvas.height = videoDimensions.height
+    canvas.width = TARGET_WIDTH
+    canvas.height = TARGET_HEIGHT
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
@@ -50,22 +72,55 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
     let animationId: number
 
     const drawFrame = () => {
-      // Draw video frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      // Calculate source dimensions for cropping
+      const videoAspectRatio = video.videoWidth / video.videoHeight
+      let sourceX = 0
+      let sourceY = 0
+      let sourceWidth = video.videoWidth
+      let sourceHeight = video.videoHeight
 
-      // Draw text overlay
+      if (videoAspectRatio > 9/16) {
+        // Video is wider than target ratio - crop sides
+        sourceWidth = video.videoHeight * (9/16)
+        sourceX = (video.videoWidth - sourceWidth) / 2
+      } else {
+        // Video is taller than target ratio - crop top/bottom
+        sourceHeight = video.videoWidth * (16/9)
+        sourceY = (video.videoHeight - sourceHeight) / 2
+      }
+
+      // Clear canvas and draw cropped video frame
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(
+        video,
+        sourceX, sourceY, sourceWidth, sourceHeight,  // Source dimensions
+        0, 0, TARGET_WIDTH, TARGET_HEIGHT             // Destination dimensions
+      )
+
+      // Draw text overlay with updated measurements
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-      const textBoxHeight = calculateTextHeight(ctx, overlayText, canvas.width - 40)
-      ctx.fillRect(0, (canvas.height - textBoxHeight) / 2, canvas.width, textBoxHeight)
+      const textWidth = TARGET_WIDTH - (TEXT_PADDING * 2)
+      const textBoxHeight = calculateTextHeight(ctx, overlayText, textWidth)
+      
+      // Position the text box in the lower third of the video
+      const textBoxY = (TARGET_HEIGHT * 0.7) - (textBoxHeight / 2)
+      ctx.fillRect(0, textBoxY, TARGET_WIDTH, textBoxHeight)
 
       // Text styling
       ctx.fillStyle = "white"
-      ctx.font = "bold 32px Arial"
+      ctx.font = `bold ${BASE_FONT_SIZE}px Arial`
       ctx.textAlign = "center"
       ctx.textBaseline = "middle"
 
       // Draw wrapped text
-      drawWrappedText(ctx, overlayText, canvas.width / 2, canvas.height / 2, canvas.width - 40, 40)
+      drawWrappedText(
+        ctx,
+        overlayText,
+        TARGET_WIDTH / 2,
+        textBoxY + textBoxHeight / 2,
+        textWidth,
+        LINE_HEIGHT
+      )
 
       animationId = requestAnimationFrame(drawFrame)
     }
@@ -98,9 +153,11 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
   // Function to calculate text height based on wrapping
   const calculateTextHeight = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): number => {
     const words = text.split(" ")
-    const lineHeight = 40
     let lines = 1
     let currentLine = words[0]
+
+    // Set font here to ensure accurate measurements
+    ctx.font = `bold ${BASE_FONT_SIZE}px Arial`
 
     for (let i = 1; i < words.length; i++) {
       const word = words[i]
@@ -114,7 +171,7 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
       }
     }
 
-    return lines * lineHeight + 40 // Add padding
+    return lines * LINE_HEIGHT + TEXT_PADDING * 2 // Padding top and bottom
   }
 
   // Function to draw wrapped text
@@ -129,6 +186,9 @@ export default function VideoOverlay({ videoUrl, overlayText }: VideoOverlayProp
     const words = text.split(" ")
     const lines: string[] = []
     let currentLine = words[0]
+
+    // Set font here to ensure consistent rendering
+    ctx.font = `bold ${BASE_FONT_SIZE}px Arial`
 
     for (let i = 1; i < words.length; i++) {
       const word = words[i]
